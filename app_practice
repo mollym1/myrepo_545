@@ -1,0 +1,63 @@
+library(shiny)
+library(ggplot2)
+library(dplyr)
+library(shinyWidgets)
+
+
+bcl <- read.csv("https://gist.githubusercontent.com/daattali/720431961c6c5394ae96/raw/10222380b7d3c9c43d22cc67e6afe84fef98ab9a/bcl-data.csv", stringsAsFactors = FALSE)
+
+ui <- fluidPage(
+  titlePanel("BC Liquor Store prices"),
+  sidebarLayout(
+    sidebarPanel(
+      sliderInput("priceInput", "Price", 0, 100, c(25, 40), pre = "$"),
+      checkboxGroupInput("typeInput", "Product type",
+                   choices = c("ALL", "BEER", "REFRESHMENT", "SPIRITS", "WINE"),
+                   selected = "WINE"),
+      pickerInput("countryInput","Country", choices=c((unique(bcl$Country))),
+                  options = list(`actions-box` = TRUE), multiple=T),
+    ),
+    mainPanel(
+      plotOutput("coolplot"),
+      br(), br(),
+      tableOutput("results"))
+  )
+)
+
+
+server <- function(input, output) {
+
+    filtered <- reactive({
+
+    bcl %>%
+      filter(Price >= input$priceInput[1],
+             Price <= input$priceInput[2],
+             Type == input$typeInput,
+             Country == input$countryInput
+      )
+
+     if (input$typeInput == "ALL"){
+      filtered <- bcl
+    } else {
+      filtered <- bcl %>%
+        filter(Type == input$typeInput)
+    }
+  })
+
+    output$countryOutput <- renderPrint(input$countryInput)
+
+  output$coolplot <- renderPlot({
+    if (is.null(filtered())) {
+      return()
+    }
+    ggplot(filtered(), aes(Alcohol_Content)) +
+      geom_histogram()
+  })
+
+  output$results <- renderTable({
+    filtered()
+  })
+
+}
+
+shinyApp(ui = ui, server = server)
